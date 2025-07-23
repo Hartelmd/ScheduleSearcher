@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from datetime import datetime, timedelta
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 
 # Initial empty one-column schedule
 initial_people = [""]
@@ -16,7 +17,7 @@ def generate_times():
     return times
 
 time_slots = generate_times()
-schedule = [[ "" ] for _ in time_slots]
+schedule = [[""] for _ in time_slots]
 
 @app.route('/')
 def index():
@@ -58,9 +59,7 @@ def update_all_days():
                 for i, row in enumerate(schedule):
                     time_str = time_slots[i].ljust(time_col_width)
                     free_time_str = row[0].ljust(free_time_col_width) if len(row) > 0 else "Yes".ljust(free_time_col_width)
-                    # Pad person cells; if missing, fill with spaces
                     person_cells = [c.ljust(person_col_width) for c in row[1:]]
-                    # If fewer person cells than people, pad empty cells
                     if len(person_cells) < len(people):
                         person_cells += [" " * person_col_width] * (len(people) - len(person_cells))
 
@@ -72,6 +71,14 @@ def update_all_days():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/download_free_time')
+def download_free_time():
+    file_path = "freeTime.txt"
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    else:
+        return "File not found", 404
 
 if __name__ == '__main__':
     app.run(debug=True)
+
