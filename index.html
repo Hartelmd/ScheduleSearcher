@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weekly Schedule</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        td, th {
+            text-align: center;
+            vertical-align: middle;
+            min-width: 120px;
+        }
+        td[contenteditable="true"], th[contenteditable="true"] {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="container-fluid">
+        <h2 class="mb-4">Open Time Search</h2>
+
+        <!-- Tab navigation -->
+        <ul class="nav nav-tabs" id="dayTabs" role="tablist">
+            {% for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if loop.first %}active{% endif %}" id="{{day}}-tab" data-bs-toggle="tab" data-bs-target="#{{day}}" type="button" role="tab" aria-controls="{{day}}" aria-selected="{{ 'true' if loop.first else 'false' }}">
+                    {{day}}
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <!-- Tab content -->
+        <div class="tab-content mt-3" id="dayTabsContent">
+            {% for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] %}
+            <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="{{day}}" role="tabpanel" aria-labelledby="{{day}}-tab">
+                <table class="table table-bordered schedule-table" data-day="{{day}}">
+                    <thead>
+                        <tr id="header-row-{{day}}">
+                            <th>Time</th>
+                            <th>Free Time</th>
+                            {% for person in people %}
+                            <th contenteditable="true" oninput="checkForNewColumn(this, '{{day}}')">{{ person }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-body-{{day}}">
+                        {% for i in range(time_slots|length) %}
+                        <tr>
+                            <td><strong>{{ time_slots[i] }}</strong></td>
+                            <td class="free-time-cell">Yes</td>
+                            {% for j in range(people|length) %}
+                            <td contenteditable="true" oninput="updateFreeTime(this)"></td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button class="btn btn-primary mt-3" onclick="saveAllTables()">Save All Days</button>
+        <div id="status" class="mt-2"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        function checkForNewColumn(cell, day) {
+            const headerRow = document.getElementById(`header-row-${day}`);
+            const headers = headerRow.querySelectorAll("th");
+            const lastHeader = headers[headers.length - 1];
+
+            if (cell === lastHeader && cell.innerText.trim() !== "") {
+                const newHeader = document.createElement("th");
+                newHeader.setAttribute("contenteditable", "true");
+                newHeader.setAttribute("oninput", `checkForNewColumn(this, '${day}')`);
+                headerRow.appendChild(newHeader);
+
+                const bodyRows = document.querySelectorAll(`#schedule-body-${day} tr`);
+                for (let row of bodyRows) {
+                    const newCell = document.createElement("td");
+                    newCell.setAttribute("contenteditable", "true");
+                    newCell.setAttribute("oninput", "updateFreeTime(this)");
+                    row.appendChild(newCell);
+                }
+            }
+        }
+
+        function updateFreeTime(cell) {
+            const row = cell.parentElement;
+            const editableCells = Array.from(row.querySelectorAll('td[contenteditable="true"]'));
+            const hasContent = editableCells.some(c => c.innerText.trim() !== "");
+            const freeTimeCell = row.querySelector('.free-time-cell');
+            if (freeTimeCell) {
+                freeTimeCell.innerText = hasContent ? "No" : "Yes";
+            }
+        }
+
+        function saveAllTables() {
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            const allData = {};
+
+            days.forEach(day => {
+                const table = document.querySelector(`table[data-day='${day}']`);
+                const headers = table.querySelectorAll('thead th');
+                const people = [];
+
+                for (let i = 2; i < headers.length; i++) {  // skip Time and Free Time
+                    people.push(headers[i].innerText.trim());
+                }
+
+                const rows = table.querySelectorAll('tbody tr');
+                const schedule = [];
+
+                for (let row of rows) {
+                    const cells = row.querySelectorAll('td');
+                    const rowData = [];
+                    for (let i = 1; i < cells.length; i++) {
+                        rowData.push(cells[i].innerText.trim());
+                    }
+                    schedule.push(rowData);
+                }
+
+                allData[day] = { people, schedule };
+            });
+
+            fetch('/update_all_days', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(allData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('status').innerText = 'All schedules saved!';
+            })
+            .catch(err => {
+                document.getElementById('status').innerText = 'Error saving schedules.';
+            });
+        }
+    </script>
+
+    <!-- Bootstrap JS for tabs -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
