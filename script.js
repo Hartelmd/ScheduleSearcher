@@ -69,6 +69,16 @@ function saveAllTables() {
     .then(res => res.json())
     .then(data => {
         document.getElementById('status').innerText = 'All schedules saved!';
+
+        // Popup asking if user wants to download the saved file
+        if (confirm('Schedules saved! Do you want to download the freeTime.txt file?')) {
+            const a = document.createElement('a');
+            a.href = '/download_free_time';
+            a.download = 'freeTime.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
     })
     .catch(err => {
         document.getElementById('status').innerText = 'Error saving schedules.';
